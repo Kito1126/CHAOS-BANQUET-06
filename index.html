@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>마브러브 걸즈 가든 외전 CHAOS BANQUET</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#11151d;color:#edf0f7;font-family:system-ui,sans-serif}
+header{padding:12px 16px;background:#202838;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;position:relative}
+h1{font-size:16px;margin:0;position:absolute;left:16px}
+button{background:#354461;color:white;border:1px solid #66758f;border-radius:7px;padding:9px 12px;font-size:14px;cursor:pointer}button:disabled{opacity:.35;cursor:default}
+.mode-toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap;font-size:14px;user-select:none}
+.mode-toggle input{position:absolute;opacity:0;width:1px;height:1px}.switch-track{width:44px;height:25px;border-radius:20px;background:#354461;border:1px solid #66758f;position:relative;display:inline-block;flex-shrink:0;transition:background .15s}
+.switch-track:after{content:"";position:absolute;width:17px;height:17px;left:3px;top:3px;border-radius:50%;background:#edf0f7;transition:transform .15s}
+.mode-toggle input:checked + .switch-track{background:#477dc4}.mode-toggle input:checked + .switch-track:after{transform:translateX(19px)}.mode-toggle input:focus-visible + .switch-track{outline:2px solid #a8d5ff;outline-offset:3px}.mode-status{font-size:12px;min-width:25px;color:#c4d6f0}
+.controls{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}
+.stage{height:calc(100dvh - var(--header-height,64px));min-height:0;width:100%;position:relative;overflow:hidden;padding:8px;touch-action:pan-y}
+.spread{width:100%;height:100%;display:flex;align-items:stretch;justify-content:center;min-width:0;min-height:0}
+.slot{flex:0 0 100%;width:100%;min-width:0;min-height:0;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.spread.double .slot{flex-basis:50%;width:50%}.spread.double .slot:first-child{justify-content:flex-end}.spread.double .slot:last-child{justify-content:flex-start}
+.page{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;-webkit-user-drag:none;user-select:none}.empty{width:100%;height:100%;background:transparent}
+#notice{margin:20px auto;max-width:620px;padding:20px;background:#263247;border-radius:10px;line-height:1.6}a{color:#9bd3ff}
+#fullscreen-toggle{position:absolute;right:16px;top:50%;transform:translateY(-50%);white-space:nowrap}
+#exit-fullscreen{display:none;position:fixed;right:14px;top:14px;z-index:100;background:rgba(28,36,51,.9)}
+#fullscreen-toggle,#exit-fullscreen{font-size:22px;line-height:1;min-width:38px;min-height:36px;padding:5px 9px}
+body.immersive{overflow:hidden}body.immersive header,body.immersive #notice{display:none!important}body.immersive .stage{height:100dvh!important;width:100vw;padding:0;min-height:0}
+body.immersive #exit-fullscreen{display:block;opacity:0;pointer-events:none;transition:opacity .2s}body.immersive.show-exit #exit-fullscreen,body.immersive #exit-fullscreen:focus-visible{opacity:1;pointer-events:auto}
+@media(max-width:1150px){header{flex-direction:column;gap:8px}h1{position:static;text-align:center}.controls{gap:5px;width:100%;padding-right:48px}button{padding:8px}#fullscreen-toggle{position:absolute;right:16px;top:auto;bottom:12px;transform:none;margin:0}}
+@media(max-width:600px){header{padding:10px 8px}h1{font-size:14px}.mode-toggle{gap:5px;font-size:12px}.controls{padding-right:42px}#fullscreen-toggle{right:8px;bottom:10px;font-size:20px;min-width:34px;min-height:34px;padding:5px}}
+.stage,.stage *{-webkit-user-select:none;user-select:none;-webkit-user-drag:none}.stage.zoomed{touch-action:none;cursor:zoom-out}
+.stage.zoomed .spread{transform:translate(var(--pan-x,0px),var(--pan-y,0px)) scale(var(--zoom-scale,2));transform-origin:center center;cursor:grab}
+.stage.zoomed.dragging .spread{cursor:grabbing}.stage.zoomed .page{pointer-events:none}.stage:not(.zoomed){cursor:zoom-in}
+@media(pointer:coarse){.stage{touch-action:none}.stage:not(.zoomed){cursor:default}}
+</style>
+</head>
+<body>
+<header>
+<h1>마브러브 걸즈 가든 외전 CHAOS BANQUET</h1>
+<div class="controls">
+<label class="mode-toggle"><span>양면 표시</span><input type="checkbox" id="mode" aria-label="양면 표시"><span class="switch-track" aria-hidden="true"></span><span class="mode-status" id="mode-status">OFF</span></label>
+<button id="next">← 다음</button><span id="counter">1 / 40</span><button id="prev">이전 →</button>
+</div>
+<button id="fullscreen-toggle" type="button" aria-label="전체화면 시작">⛶</button>
+</header>
+<button id="exit-fullscreen" type="button" aria-label="전체화면 종료">⤢</button>
+<main><div class="stage" id="stage"><div id="spread" class="spread"></div></div></main>
+<script>
+const pages=[
+  '000.jpg','001.png','002.png','003.png','004.png','005.png','006.png','007.png','008.png','009.png',
+  '010.png','011.png','012.png','013.png','014.png','015.png','016.png','017.png','018.png','019.png',
+  '020.png','021.png','022.png','023.png','024.png','025.png','026.png','027.png','028.png','029.png',
+  '030.png','031.png','032.png','033.png','034.png','035.png','036.png','037.png','038.png','039.png'
+];
+const header=document.querySelector('header');const resizeStage=()=>document.documentElement.style.setProperty('--header-height',header.getBoundingClientRect().height+'px');window.addEventListener('resize',resizeStage);if(window.ResizeObserver)new ResizeObserver(resizeStage).observe(header);resizeStage();
+const stage=document.getElementById('stage');let zoomed=false,zoomScale=1,panX=0,panY=0;
+const mobileTouch=()=>window.matchMedia('(pointer:coarse)').matches;
+function clampPan(){
+  if(!zoomed)return;
+  const images=[...spread.querySelectorAll('img.page')].filter(im=>im.complete&&im.naturalWidth);
+  if(!images.length){panX=0;panY=0;return;}
+  const viewport=stage.getBoundingClientRect();
+  const rects=images.map(im=>im.getBoundingClientRect());
+  const left=Math.min(...rects.map(r=>r.left))-panX;
+  const right=Math.max(...rects.map(r=>r.right))-panX;
+  const top=Math.min(...rects.map(r=>r.top))-panY;
+  const bottom=Math.max(...rects.map(r=>r.bottom))-panY;
+  function limit(current,start,end,viewStart,viewEnd){
+    if(end-start<=viewEnd-viewStart)return (viewStart+viewEnd-start-end)/2;
+    return Math.max(viewEnd-end,Math.min(viewStart-start,current));
+  }
+  panX=limit(panX,left,right,viewport.left,viewport.right);
+  panY=limit(panY,top,bottom,viewport.top,viewport.bottom);
+}
+function updatePan(){
+  stage.style.setProperty('--zoom-scale',zoomScale);
+  stage.style.setProperty('--pan-x',panX+'px');
+  stage.style.setProperty('--pan-y',panY+'px');
+  if(zoomed){clampPan();stage.style.setProperty('--pan-x',panX+'px');stage.style.setProperty('--pan-y',panY+'px')}
+}
+function setZoom(value,scale=2){
+  zoomScale=value?scale:1;
+  zoomed=zoomScale>1.001;
+  panX=0;panY=0;
+  stage.classList.toggle('zoomed',zoomed);
+  stage.classList.remove('dragging');
+  stage.setAttribute('aria-label',mobileTouch()?'두 손가락으로 확대 또는 축소':'더블 클릭으로 확대 또는 축소');
+  updatePan();
+}
+const mode=document.getElementById('mode'),modeStatus=document.getElementById('mode-status'),spread=document.getElementById('spread'),counter=document.getElementById('counter'),prev=document.getElementById('prev'),next=document.getElementById('next');let index=0;let readingMode='single';function show(){
+  mode.checked=readingMode==='double';modeStatus.textContent=mode.checked?'ON':'OFF';
+  spread.replaceChildren();
+  spread.className='spread '+(readingMode==='double'?'double':'single');
+  const count=readingMode==='double'?2:1;
+  for(let n=count-1;n>=0;n--){
+    const slot=document.createElement('div');slot.className='slot';
+    const url=pages[index+n];
+    if(url){const im=document.createElement('img');im.className='page';im.draggable=false;im.src=url;im.alt=`${index+n+1}페이지`;slot.appendChild(im)}
+    else{const blank=document.createElement('div');blank.className='empty';slot.appendChild(blank)}
+    spread.appendChild(slot);
+  }
+  counter.textContent=`${index+1}${count===2&&index+1<pages.length?'–'+Math.min(index+2,pages.length):''} / ${pages.length}`;
+  prev.disabled=index===0;next.disabled=index>=pages.length-1;
+}
+function move(d){const target=Math.max(0,Math.min(pages.length-1,index+d));if(target===index)return;setZoom(false);index=target;show()}prev.onclick=()=>move(-1);next.onclick=()=>move(1);mode.onchange=()=>{setZoom(false);readingMode=mode.checked?'double':'single';show()};document.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();e.stopPropagation();move(e.key==='ArrowLeft'?1:-1)}},true);
+stage.addEventListener('dblclick',e=>{if(e.pointerType==='touch'||mobileTouch())return;e.preventDefault();setZoom(!zoomed)});
+let drag=null;
+stage.addEventListener('dragstart',e=>e.preventDefault());
+stage.addEventListener('selectstart',e=>e.preventDefault());
+stage.addEventListener('pointerdown',e=>{if(!zoomed||e.pointerType==='touch'||e.button!==0)return;e.preventDefault();drag={id:e.pointerId,x:e.clientX,y:e.clientY,startX:panX,startY:panY};stage.classList.add('dragging');stage.setPointerCapture(e.pointerId)});
+stage.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;panX=drag.startX+e.clientX-drag.x;panY=drag.startY+e.clientY-drag.y;updatePan()});
+function stopDrag(e){if(!drag||drag.id!==e.pointerId)return;drag=null;stage.classList.remove('dragging');if(stage.hasPointerCapture(e.pointerId))stage.releasePointerCapture(e.pointerId)}
+stage.addEventListener('pointerup',stopDrag);stage.addEventListener('pointercancel',stopDrag);
+let touchState=null;
+const touchDistance=(a,b)=>Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+const touchCenter=(a,b)=>({x:(a.clientX+b.clientX)/2,y:(a.clientY+b.clientY)/2});
+function startPinch(touches){
+  const a=touches[0],b=touches[1];
+  touchState={kind:'pinch',distance:Math.max(1,touchDistance(a,b)),scale:zoomScale,
+    center:touchCenter(a,b),panX,panY};
+}
+stage.addEventListener('touchstart',e=>{
+  if(e.touches.length>=2){startPinch(e.touches);e.preventDefault();return;}
+  if(e.touches.length!==1)return;
+  const t=e.touches[0];
+  touchState={kind:'single',x:t.clientX,y:t.clientY,lastX:t.clientX,lastY:t.clientY,
+    panX,panY,moved:false,startedZoomed:zoomed};
+},{passive:false});
+stage.addEventListener('touchmove',e=>{
+  if(e.touches.length>=2){
+    if(!touchState||touchState.kind!=='pinch')startPinch(e.touches);
+    const t=touchState;
+    const center=touchCenter(e.touches[0],e.touches[1]);
+    const newScale=Math.max(1,Math.min(4,t.scale*touchDistance(e.touches[0],e.touches[1])/t.distance));
+    const box=stage.getBoundingClientRect();
+    const originX=box.left+box.width/2,originY=box.top+box.height/2;
+    const ratio=newScale/t.scale;
+    panX=t.panX+(center.x-t.center.x)+(1-ratio)*(t.center.x-originX-t.panX);
+    panY=t.panY+(center.y-t.center.y)+(1-ratio)*(t.center.y-originY-t.panY);
+    zoomScale=newScale;zoomed=newScale>1.001;
+    stage.classList.toggle('zoomed',zoomed);
+    updatePan();
+    e.preventDefault();return;
+  }
+  if(!touchState||touchState.kind!=='single'||e.touches.length!==1)return;
+  const t=touchState,point=e.touches[0];
+  const dx=point.clientX-t.x,dy=point.clientY-t.y;
+  if(Math.hypot(dx,dy)>12)t.moved=true;
+  t.lastX=point.clientX;t.lastY=point.clientY;
+  if(zoomed){panX=t.panX+dx;panY=t.panY+dy;updatePan();e.preventDefault()}
+},{passive:false});
+stage.addEventListener('touchend',e=>{
+  if(!touchState)return;
+  if(touchState.kind==='pinch'){
+    if(e.touches.length>=2){startPinch(e.touches);return;}
+    touchState=null;
+    if(zoomScale<=1.015)setZoom(false);
+    e.preventDefault();return;
+  }
+  if(e.touches.length!==0)return;
+  const t=touchState;touchState=null;
+  const dx=t.lastX-t.x,dy=t.lastY-t.y;
+  if(t.startedZoomed||zoomed)return;
+  if(!t.moved&&Math.hypot(dx,dy)<18){
+    const bounds=stage.getBoundingClientRect();
+    const relativeX=t.x-bounds.left;
+    const edge=bounds.width*0.18;
+    if(relativeX<=edge){move(1);e.preventDefault()}
+    else if(relativeX>=bounds.width-edge){move(-1);e.preventDefault()}
+    return;
+  }
+  if(Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.3){move(dx>0?1:-1);e.preventDefault()}
+},{passive:false});
+stage.addEventListener('touchcancel',()=>{touchState=null});
+window.addEventListener('resize',()=>{if(zoomed)requestAnimationFrame(updatePan)});
+spread.addEventListener('load',()=>{if(zoomed)requestAnimationFrame(updatePan)},true);
+let wheelSum=0;
+const WHEEL_DISTANCE_PER_PAGE=120;
+stage.addEventListener('wheel',e=>{
+  if(zoomed||e.ctrlKey)return;
+  const delta=e.deltaY!==0?e.deltaY:e.deltaX;
+  if(!delta)return;
+  e.preventDefault();
+  const unit=e.deltaMode===1?16:e.deltaMode===2?stage.clientHeight:1;
+  const amount=delta*unit;
+  if(wheelSum!==0&&Math.sign(wheelSum)!==Math.sign(amount))wheelSum=0;
+  wheelSum+=amount;
+  const direction=Math.sign(wheelSum);
+  const steps=Math.floor(Math.abs(wheelSum)/WHEEL_DISTANCE_PER_PAGE);
+  if(steps>0){
+    wheelSum-=direction*steps*WHEEL_DISTANCE_PER_PAGE;
+    move(direction*steps);
+    if((direction>0&&index===pages.length-1)||(direction<0&&index===0))wheelSum=0;
+  }
+},{passive:false});
+show();
+const fullBtn=document.getElementById('fullscreen-toggle');
+const exitBtn=document.getElementById('exit-fullscreen');
+let immersive=false;
+function syncImmersive(active){immersive=active;document.body.classList.toggle('immersive',active);document.body.classList.remove('show-exit');fullBtn.setAttribute('aria-pressed',String(active));}
+async function enterImmersive(){syncImmersive(true);try{if(document.documentElement.requestFullscreen)await document.documentElement.requestFullscreen()}catch(e){}}
+async function leaveImmersive(){syncImmersive(false);if(document.fullscreenElement){try{await document.exitFullscreen()}catch(e){}}}
+fullBtn.addEventListener('click',enterImmersive);
+exitBtn.addEventListener('click',leaveImmersive);
+document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&immersive)syncImmersive(false)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&immersive)leaveImmersive()});
+document.addEventListener('pointermove',e=>{if(immersive&&e.pointerType==='mouse')document.body.classList.toggle('show-exit',e.clientY<85&&e.clientX>innerWidth-210)});
+stage.addEventListener('click',e=>{if(immersive&&e.pointerType!=='mouse'&&e.clientY<90&&e.clientX>innerWidth-120)document.body.classList.toggle('show-exit')});
+</script>
+</body>
+</html>
